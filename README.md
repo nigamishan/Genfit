@@ -58,3 +58,6 @@ Genfit is an AI-powered fitness platform that generates personalized workout pla
    ```bash
    go run main.go
    ```
+   
+Design:
+![img_2.png](img_2.png)
