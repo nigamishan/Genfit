@@ -60,4 +60,4 @@ Genfit is an AI-powered fitness platform that generates personalized workout pla
    ```
 
 Design: 
-![img_3.png](img_3.png)
+![img_5.png](img_5.png)
