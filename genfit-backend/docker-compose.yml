@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: pwd
+    networks:
+      - genfit-net
+
+  backend:
+    build: ./backend
+    container_name: backend
+    ports:
+      - "3000:3000" # Change if your backend runs on another port
+    environment:
+      MONGO_URI: mongodb://admin:adminpass@mongodb:27017
+    networks:
+      - fitness-net
+    depends_on:
+      - mongodb
+
+networks:
+  fitness-net:

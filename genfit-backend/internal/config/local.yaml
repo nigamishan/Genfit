@@ -1,0 +1,30 @@
+# Fitness Backend Application Configuration
+
+# Server configuration
+server:
+  port: 8080
+  timeout: 30s
+  readTimeout: 15s
+  writeTimeout: 15s
+
+# Logger configuration
+logger:
+  level: "info" # debug, info, warn, error
+
+# Database configuration
+database:
+  mongodb:
+    host: "localhost"
+    port: 27017
+    user: "admin"
+    password: "adminpass"
+    name: "genfit"
+
+whitelisted_users:
+  user1: "user1"
+  user2: "user2"
+
+whitelisted_admins:
+  admin1: "admin1"
+  admin2: "admin2"
+
