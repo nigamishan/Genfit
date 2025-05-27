@@ -16,6 +16,16 @@ const (
 	MetricCustom      ProgressMetricType = "custom"       // Custom metrics defined by the user
 )
 
+// TrendType defines the type of trend for a metric
+type TrendType string
+
+// Constants for different trend types
+const (
+	TrendIncreasing TrendType = "increasing" // Values are trending upward
+	TrendDecreasing TrendType = "decreasing" // Values are trending downward
+	TrendStable     TrendType = "stable"     // Values are relatively stable
+)
+
 // ProgressEntry represents a single progress data point
 type ProgressEntry struct {
 	ID          string             `json:"id,omitempty"`
@@ -91,8 +101,12 @@ type GetProgressSummaryResponse struct {
 // ProgressTrend calculates the trend for a specific metric
 type ProgressTrend struct {
 	MetricType    ProgressMetricType `json:"metric_type"`
+	TrendType     TrendType          `json:"trend_type"`  // Type of trend (increasing, decreasing, stable)
+	Strength      float64            `json:"strength"`    // Strength of the trend (0-100)
+	Description   string             `json:"description"` // Human readable description of the trend
 	StartValue    float64            `json:"start_value"`
-	CurrentValue  float64            `json:"current_value"`
+	EndValue      float64            `json:"end_value"`     // Most recent value
+	CurrentValue  float64            `json:"current_value"` // Alias for EndValue for backward compatibility
 	StartDate     time.Time          `json:"start_date"`
 	EndDate       time.Time          `json:"end_date"`
 	TotalChange   float64            `json:"total_change"`

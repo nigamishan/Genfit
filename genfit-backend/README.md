@@ -35,11 +35,12 @@ A robust Go-based backend service for fitness tracking and workout management. T
 
 ## Features
 
-- **User Management**: Create, read, update, and delete user profiles
+- **User Management**: Create, read, update, and delete user profiles with username-based authentication
 - **Exercise Catalog**: Comprehensive exercise database with filtering options
 - **Workout Planning**: Custom workout plan creation and management
 - **Progress Tracking**: Log and analyze fitness metrics over time
 - **MongoDB Integration**: Robust data persistence using MongoDB
+- **Authentication-based Access**: Users can only access their own data through authenticated endpoints
 
 ## Setup
 
@@ -114,7 +115,9 @@ whitelisted_admins:
 
 ### Authentication
 
-Authentication is implemented using HTTP Basic Authentication. To authenticate requests:
+Authentication is implemented using HTTP Basic Authentication with username-based access control. The system extracts the username from the authentication credentials and uses it to ensure users can only access their own data.
+
+To authenticate requests:
 
 1. Encode your username and password in the format `username:password` using Base64
 2. Add an Authorization header with the value `Basic {encoded-credentials}`
@@ -122,12 +125,12 @@ Authentication is implemented using HTTP Basic Authentication. To authenticate r
 Example using curl:
 
 ```bash
-# Regular user authentication
-curl -X GET http://localhost:8080/users/123 \
+# Regular user authentication - accessing your own profile
+curl -X GET http://localhost:8080/users/me \
   -H "Authorization: Basic am9objpwYXNzd29yZDEyMw==" \
   -H "Content-Type: application/json"
 
-# Admin authentication
+# Admin authentication - managing exercises
 curl -X POST http://localhost:8080/admin/exercises \
   -H "Authorization: Basic YWRtaW46YWRtaW5wYXNz" \
   -H "Content-Type: application/json" \
@@ -149,6 +152,8 @@ You can generate these values using command line utilities:
 ```bash
 echo -n "username:password" | base64
 ```
+
+**Important**: Users can only access their own data. The API automatically determines which user is making the request based on the authenticated username and restricts access accordingly.
 
 ### User Management
 
@@ -179,25 +184,25 @@ echo -n "username:password" | base64
   ```
 - **Response**: Created user with ID
 
-#### Get User
+#### Get Your Profile
 
-- **Endpoint**: `GET /users/{userId}`
-- **Description**: Retrieves user details
+- **Endpoint**: `GET /users/me`
+- **Description**: Retrieves your user profile details
 - **Authentication**: Required (Basic Auth)
-- **Response**: User profile data
+- **Response**: Your user profile data
 
-#### Update User
+#### Update Your Profile
 
-- **Endpoint**: `PUT /users/{userId}`
-- **Description**: Updates user profile
+- **Endpoint**: `PUT /users/me`
+- **Description**: Updates your user profile
 - **Authentication**: Required (Basic Auth)
 - **Request Body**: Same as Create User but all fields are optional
 - **Response**: Updated user profile
 
-#### Delete User
+#### Delete Your Account
 
-- **Endpoint**: `DELETE /users/{userId}`
-- **Description**: Deletes a user account
+- **Endpoint**: `DELETE /users/me`
+- **Description**: Deletes your user account
 - **Authentication**: Required (Basic Auth)
 - **Response**: 204 No Content
 
@@ -269,7 +274,7 @@ echo -n "username:password" | base64
 #### Create Workout Plan
 
 - **Endpoint**: `POST /workout/manual`
-- **Description**: Creates a workout plan for a user
+- **Description**: Creates a workout plan for the authenticated user
 - **Authentication**: Required (Basic Auth)
 - **Request Body**:
   ```json
@@ -305,25 +310,25 @@ echo -n "username:password" | base64
   ```
 - **Response**: Created workout plan with ID
 
-#### Get Workout Plan
+#### Get Your Workout Plan
 
-- **Endpoint**: `GET /workout/{userId}`
-- **Description**: Retrieves a user's workout plan
+- **Endpoint**: `GET /workout/me`
+- **Description**: Retrieves your workout plan
 - **Authentication**: Required (Basic Auth)
-- **Response**: Workout plan details with exercises
+- **Response**: Your workout plan details with exercises
 
-#### Update Workout Plan
+#### Update Your Workout Plan
 
-- **Endpoint**: `PUT /workout/{userId}`
-- **Description**: Updates a workout plan
+- **Endpoint**: `PUT /workout/me`
+- **Description**: Updates your workout plan
 - **Authentication**: Required (Basic Auth)
 - **Request Body**: Same as Create Workout Plan with all fields optional
 - **Response**: Updated workout plan
 
-#### Delete Workout Plan
+#### Delete Your Workout Plan
 
-- **Endpoint**: `DELETE /workout/{userId}`
-- **Description**: Deletes a workout plan
+- **Endpoint**: `DELETE /workout/me`
+- **Description**: Deletes your workout plan
 - **Authentication**: Required (Basic Auth)
 - **Response**: 204 No Content
 
@@ -348,12 +353,11 @@ echo -n "username:password" | base64
 #### Log Progress
 
 - **Endpoint**: `POST /progress`
-- **Description**: Logs a new progress entry
+- **Description**: Logs a new progress entry for the authenticated user
 - **Authentication**: Required (Basic Auth)
 - **Request Body**:
   ```json
   {
-    "user_id": "user123",
     "metric_type": "weight",
     "value": 80.5,
     "unit": "kg",
@@ -364,47 +368,42 @@ echo -n "username:password" | base64
   ```
 - **Response**: Created progress entry with ID
 
-#### Get Progress
+#### Get Your Progress
 
-- **Endpoint**: `GET /progress/{userId}`
-- **Description**: Retrieves progress entries with optional filters
+- **Endpoint**: `GET /progress/me`
+- **Description**: Retrieves your progress entries with optional filters
 - **Authentication**: Required (Basic Auth)
 - **Query Parameters**:
-  - `metric_types`: Types of metrics to retrieve (comma separated)
-  - `start_date`: Filter by start date
-  - `end_date`: Filter by end date
+  - `metric_types[]`: Types of metrics to retrieve (array parameter)
+  - `start_date`: Filter by start date (RFC3339 format)
+  - `end_date`: Filter by end date (RFC3339 format)
   - `limit`: Maximum number of entries to return
   - `sort_order`: "asc" or "desc" (default: "desc")
-- **Response**: List of progress entries
+- **Response**: List of your progress entries
 
-#### Get Progress Summary
+#### Get Your Progress Summary
 
-- **Endpoint**: `GET /progress/{userId}/summary`
-- **Description**: Retrieves summary of progress metrics
+- **Endpoint**: `GET /progress/me/summary`
+- **Description**: Retrieves summary of your progress metrics
 - **Authentication**: Required (Basic Auth)
-- **Response**: Summary statistics for each metric type
+- **Response**: Summary statistics for each of your metric types
 
-#### Get Progress Trend
+#### Get Your Progress Trend
 
-- **Endpoint**: `GET /progress/{userId}/trend`
-- **Description**: Retrieves trend information for metrics
+- **Endpoint**: `GET /progress/me/trend`
+- **Description**: Retrieves trend information for your metrics
 - **Authentication**: Required (Basic Auth)
 - **Query Parameters**:
-  - `metric_types`: Types of metrics to analyze (comma separated)
-- **Response**: Trend analysis for each metric type
+  - `metric_types[]`: Types of metrics to analyze (array parameter)
+- **Response**: Trend analysis for each of your metric types
 
-#### Delete Progress
+#### Delete Progress Entry
 
 - **Endpoint**: `DELETE /progress`
-- **Description**: Deletes a progress entry
+- **Description**: Deletes one of your progress entries
 - **Authentication**: Required (Basic Auth)
-- **Request Body**:
-  ```json
-  {
-    "user_id": "user123",
-    "entry_id": "entry456"
-  }
-  ```
+- **Query Parameters**:
+  - `entryId`: ID of the progress entry to delete
 - **Response**: 204 No Content
 
 ## Database Schema

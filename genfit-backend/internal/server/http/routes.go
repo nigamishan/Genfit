@@ -39,30 +39,30 @@ func (r *Route) SetupRoutes(engine *gin.Engine) {
 	// auth := engine.Group(AuthPath) // Uncomment when implementing auth routes
 
 	// Public routes (no authentication required)
-	user.POST("", r.CreateUser)                     // Create new user profile
 	exercises.GET("/search", r.UserSearchExercises) // Public search for exercises
 
-	// Protected user routes
+	// Protected user routes - using username from context instead of path parameter
 	authenticatedUser := user.Group("")
-	authenticatedUser.Use(middlewares.AuthMiddleware()) // Apply user authentication middleware
-	authenticatedUser.GET("/:userId", r.GetUser)
-	authenticatedUser.PUT("/:userId", r.UpdateUser)
-	authenticatedUser.DELETE("/:userId", r.DeleteUser)
+	authenticatedUser.Use(middlewares.AuthMiddleware())  // Apply user authentication middleware
+	authenticatedUser.POST("", r.CreateUser)             // Create new user profile
+	authenticatedUser.GET("/me", r.GetUserProfile)       // Get current user's profile
+	authenticatedUser.PUT("/me", r.UpdateUserProfile)    // Update current user's profile
+	authenticatedUser.DELETE("/me", r.DeleteUserProfile) // Delete current user's profile
 
-	// Protected workout routes
+	// Protected workout routes - using username from context
 	workout.Use(middlewares.AuthMiddleware()) // Apply user authentication middleware
 	workout.POST("/manual", r.CreateManualWorkout)
-	workout.GET("/:userId", r.GetWorkoutPlan)
-	workout.PUT("/:userId", r.UpdateWorkoutPlan)
-	workout.DELETE("/:userId", r.DeleteWorkoutPlan)
+	workout.GET("/me", r.GetWorkoutPlan)       // Get current user's workout plan
+	workout.PUT("/me", r.UpdateWorkoutPlan)    // Update current user's workout plan
+	workout.DELETE("/me", r.DeleteWorkoutPlan) // Delete current user's workout plan
 	workout.POST("/exercises/search", r.SearchExercises)
 
-	// Protected progress routes
+	// Protected progress routes - using username from context
 	progress.Use(middlewares.AuthMiddleware()) // Apply user authentication middleware
 	progress.POST("", r.LogProgress)
-	progress.GET("/:userId", r.GetProgress)
-	progress.GET("/:userId/summary", r.GetProgressSummary)
-	progress.GET("/:userId/trend", r.GetProgressTrend)
+	progress.GET("/me", r.GetProgress)                // Get current user's progress
+	progress.GET("/me/summary", r.GetProgressSummary) // Get current user's progress summary
+	progress.GET("/me/trend", r.GetProgressTrend)     // Get current user's progress trend
 	progress.DELETE("", r.DeleteProgress)
 
 	// Protected exercise details route
@@ -114,17 +114,18 @@ func (r *Route) CreateUser(c *gin.Context) {
 	c.JSON(http.StatusCreated, user)
 }
 
-func (r *Route) GetUser(c *gin.Context) {
-	userId := c.Param("userId")
-	if userId == "" {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "User ID is required",
+func (r *Route) GetUserProfile(c *gin.Context) {
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
 		})
 		return
 	}
 
-	user, err := r.manager.GetUser(c, userId)
+	user, err := r.manager.GetUserByUsername(c, username.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to get user",
@@ -136,7 +137,7 @@ func (r *Route) GetUser(c *gin.Context) {
 	if user == nil {
 		c.JSON(http.StatusNotFound, models.ErrorResponse{
 			Error:   "User not found",
-			Message: "No user found with the specified ID",
+			Message: "No user found with the specified username",
 		})
 		return
 	}
@@ -144,12 +145,13 @@ func (r *Route) GetUser(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-func (r *Route) UpdateUser(c *gin.Context) {
-	userId := c.Param("userId")
-	if userId == "" {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "User ID is required",
+func (r *Route) UpdateUserProfile(c *gin.Context) {
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
 		})
 		return
 	}
@@ -164,7 +166,7 @@ func (r *Route) UpdateUser(c *gin.Context) {
 	}
 
 	// Note: This will replace the entire user object, not just update specific fields
-	user, err := r.manager.UpdateUser(c, userId, request)
+	user, err := r.manager.UpdateUserByUsername(c, username.(string), request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to update user",
@@ -176,7 +178,7 @@ func (r *Route) UpdateUser(c *gin.Context) {
 	if user == nil {
 		c.JSON(http.StatusNotFound, models.ErrorResponse{
 			Error:   "User not found",
-			Message: "No user found with the specified ID",
+			Message: "No user found with the specified username",
 		})
 		return
 	}
@@ -184,17 +186,18 @@ func (r *Route) UpdateUser(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-func (r *Route) DeleteUser(c *gin.Context) {
-	userId := c.Param("userId")
-	if userId == "" {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "User ID is required",
+func (r *Route) DeleteUserProfile(c *gin.Context) {
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
 		})
 		return
 	}
 
-	err := r.manager.DeleteUser(c, userId)
+	err := r.manager.DeleteUserByUsername(c, username.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to delete user",
@@ -224,19 +227,18 @@ func (r *Route) CreateManualWorkout(c *gin.Context) {
 		return
 	}
 
-	// Get user ID from path parameter or authenticated user
-	userID := c.Param("userId")
-	if userID == "" {
-		// In a real implementation, you might get this from the authentication token
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "User ID is required",
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
 		})
 		return
 	}
 
 	// Create the workout plan
-	response, err := r.manager.CreateWorkoutPlan(c, userID, request)
+	response, err := r.manager.CreateWorkoutPlanByUsername(c, username.(string), request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to create workout plan",
@@ -249,18 +251,18 @@ func (r *Route) CreateManualWorkout(c *gin.Context) {
 }
 
 func (r *Route) GetWorkoutPlan(c *gin.Context) {
-	// Get user ID from path parameter
-	userID := c.Param("userId")
-	if userID == "" {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "User ID is required",
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
 		})
 		return
 	}
 
 	// Get the workout plan
-	response, err := r.manager.GetWorkoutPlan(c, userID)
+	response, err := r.manager.GetWorkoutPlanByUsername(c, username.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to get workout plan",
@@ -281,12 +283,12 @@ func (r *Route) GetWorkoutPlan(c *gin.Context) {
 }
 
 func (r *Route) UpdateWorkoutPlan(c *gin.Context) {
-	// Get user ID from path parameter
-	userID := c.Param("userId")
-	if userID == "" {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "User ID is required",
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
 		})
 		return
 	}
@@ -302,7 +304,7 @@ func (r *Route) UpdateWorkoutPlan(c *gin.Context) {
 	}
 
 	// Update the workout plan
-	response, err := r.manager.UpdateWorkoutPlan(c, userID, request)
+	response, err := r.manager.UpdateWorkoutPlanByUsername(c, username.(string), request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to update workout plan",
@@ -315,18 +317,18 @@ func (r *Route) UpdateWorkoutPlan(c *gin.Context) {
 }
 
 func (r *Route) DeleteWorkoutPlan(c *gin.Context) {
-	// Get user ID from path parameter
-	userID := c.Param("userId")
-	if userID == "" {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "User ID is required",
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
 		})
 		return
 	}
 
 	// Delete the workout plan
-	err := r.manager.DeleteWorkoutPlan(c, userID)
+	err := r.manager.DeleteWorkoutPlanByUsername(c, username.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to delete workout plan",
@@ -340,12 +342,12 @@ func (r *Route) DeleteWorkoutPlan(c *gin.Context) {
 
 // Progress handlers
 func (r *Route) LogProgress(c *gin.Context) {
-	// Get user ID from context (or you could use a path param)
-	userID := c.Query("userId") // For now using query param, but should be from auth token in production
-	if userID == "" {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "User ID is required",
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
 		})
 		return
 	}
@@ -361,7 +363,7 @@ func (r *Route) LogProgress(c *gin.Context) {
 	}
 
 	// Log the progress
-	response, err := r.manager.LogProgress(c, userID, request)
+	response, err := r.manager.LogProgressByUsername(c, username.(string), request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to log progress",
@@ -374,12 +376,12 @@ func (r *Route) LogProgress(c *gin.Context) {
 }
 
 func (r *Route) GetProgress(c *gin.Context) {
-	// Get user ID from path parameter
-	userID := c.Param("userId")
-	if userID == "" {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "User ID is required",
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
 		})
 		return
 	}
@@ -449,7 +451,7 @@ func (r *Route) GetProgress(c *gin.Context) {
 	}
 
 	// Get the progress data
-	response, err := r.manager.GetProgress(c, userID, request)
+	response, err := r.manager.GetProgressByUsername(c, username.(string), request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to get progress data",
@@ -463,18 +465,18 @@ func (r *Route) GetProgress(c *gin.Context) {
 
 // GetProgressSummary returns a summary of progress metrics for a user
 func (r *Route) GetProgressSummary(c *gin.Context) {
-	// Get user ID from path parameter
-	userID := c.Param("userId")
-	if userID == "" {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "User ID is required",
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
 		})
 		return
 	}
 
 	// Get the progress summary
-	response, err := r.manager.GetProgressSummary(c, userID)
+	response, err := r.manager.GetProgressSummaryByUsername(c, username.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to get progress summary",
@@ -488,12 +490,12 @@ func (r *Route) GetProgressSummary(c *gin.Context) {
 
 // GetProgressTrend returns trend analysis for specific metrics
 func (r *Route) GetProgressTrend(c *gin.Context) {
-	// Get user ID from path parameter
-	userID := c.Param("userId")
-	if userID == "" {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "User ID is required",
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
 		})
 		return
 	}
@@ -514,7 +516,7 @@ func (r *Route) GetProgressTrend(c *gin.Context) {
 	}
 
 	// Get the progress trends
-	response, err := r.manager.GetProgressTrend(c, userID, metricTypes)
+	response, err := r.manager.GetProgressTrendByUsername(c, username.(string), metricTypes)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to get progress trends",
@@ -528,20 +530,27 @@ func (r *Route) GetProgressTrend(c *gin.Context) {
 
 // DeleteProgress deletes a progress entry
 func (r *Route) DeleteProgress(c *gin.Context) {
-	// Get user ID and entry ID
-	userID := c.Query("userId") // For now using query param, but should be from auth token in production
-	entryID := c.Query("entryId")
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
+		})
+		return
+	}
 
-	if userID == "" || entryID == "" {
+	entryID := c.Query("entryId")
+	if entryID == "" {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "Invalid request",
-			Message: "User ID and entry ID are required",
+			Message: "Entry ID is required",
 		})
 		return
 	}
 
 	// Delete the progress entry
-	err := r.manager.DeleteProgress(c, userID, entryID)
+	err := r.manager.DeleteProgressByUsername(c, username.(string), entryID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to delete progress entry",

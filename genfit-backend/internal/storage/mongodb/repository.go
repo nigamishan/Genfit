@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/fitness-backend/internal/logger"
@@ -75,6 +76,24 @@ func (r *Repository) GetUserByID(ctx context.Context, id string) (*UserModel, er
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			r.log.WithField("id", id).Debug("User not found")
+			return nil, nil
+		}
+		r.log.WithError(err).Error("Error retrieving user")
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// GetUserByID retrieves a user by Username
+func (r *Repository) GetUserByUsername(ctx context.Context, username string) (*UserModel, error) {
+	r.log.WithField("username", username).Debug("Retrieving user by Username")
+
+	var user UserModel
+	err := r.userCollection.FindOne(ctx, bson.M{"username": username}).Decode(&user)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			r.log.WithField("username", username).Debug("User not found")
 			return nil, nil
 		}
 		r.log.WithError(err).Error("Error retrieving user")
@@ -173,6 +192,62 @@ func (r *Repository) DeleteUser(ctx context.Context, id string) error {
 		"id":           id,
 		"deletedCount": result.DeletedCount,
 	}).Info("User deleted")
+
+	return nil
+}
+
+// ReplaceUserByUsername replaces an entire user document in the database by username
+func (r *Repository) ReplaceUserByUsername(ctx context.Context, username string, user UserModel) error {
+	r.log.WithField("username", username).Debug("Replacing user document by username")
+
+	// Find the user first to get the ObjectID
+	existingUser, err := r.GetUserByUsername(ctx, username)
+	if err != nil {
+		return err
+	}
+	if existingUser == nil {
+		return fmt.Errorf("user with username %s not found", username)
+	}
+
+	// Ensure the correct ID is set
+	user.ID = existingUser.ID
+	user.Username = username // Ensure username doesn't change
+
+	// Replace the entire document
+	result, err := r.userCollection.ReplaceOne(
+		ctx,
+		bson.M{"username": username},
+		user,
+	)
+
+	if err != nil {
+		r.log.WithError(err).Error("Failed to replace user document by username")
+		return err
+	}
+
+	r.log.WithFields(logrus.Fields{
+		"username":     username,
+		"matchedDocs":  result.MatchedCount,
+		"modifiedDocs": result.ModifiedCount,
+	}).Debug("User document replaced by username")
+
+	return nil
+}
+
+// DeleteUserByUsername deletes a user from the database by username
+func (r *Repository) DeleteUserByUsername(ctx context.Context, username string) error {
+	r.log.WithField("username", username).Info("Deleting user by username")
+
+	result, err := r.userCollection.DeleteOne(ctx, bson.M{"username": username})
+	if err != nil {
+		r.log.WithError(err).Error("Failed to delete user by username")
+		return err
+	}
+
+	r.log.WithFields(logrus.Fields{
+		"username":     username,
+		"deletedCount": result.DeletedCount,
+	}).Info("User deleted by username")
 
 	return nil
 }

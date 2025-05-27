@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/fitness-backend/internal/logger"
@@ -34,9 +33,20 @@ func NewManager(db *mongodb.Repository) *Manager {
 func (m *Manager) CreateUser(ctx context.Context, request models.UserRegistrationRequest) (*models.UserResponse, error) {
 	m.log.WithField("email", request.Email).Info("Creating new user")
 
+	// validate if user already exists
+	username := ctx.Value("username")
+	if user, err := m.db.GetUserByUsername(ctx, username.(string)); err != nil {
+		m.log.WithError(err).Error("Failed to get user")
+		return nil, err
+	} else if user != nil {
+		m.log.WithField("email", request.Email).Warn("User already exists")
+		return nil, errors.New("user already exists")
+	}
+
 	// Create the user model
 	now := time.Now()
 	user := mongodb.UserModel{
+		Username:       username.(string),
 		Name:           request.Name,
 		Email:          request.Email,
 		Age:            request.Age,
@@ -64,6 +74,7 @@ func (m *Manager) CreateUser(ctx context.Context, request models.UserRegistratio
 	// Return the user response
 	return &models.UserResponse{
 		ID:             id,
+		Username:       username.(string),
 		Name:           user.Name,
 		Email:          user.Email,
 		Age:            user.Age,
@@ -99,6 +110,43 @@ func (m *Manager) GetUser(ctx context.Context, userID string) (*models.UserRespo
 	// Return the user response
 	return &models.UserResponse{
 		ID:             userID,
+		Username:       user.Username,
+		Name:           user.Name,
+		Email:          user.Email,
+		Age:            user.Age,
+		Sex:            user.Sex,
+		Weight:         user.Weight,
+		Height:         user.Height,
+		CurrentFitness: user.CurrentFitness,
+		Goals:          user.Goals,
+		CreatedAt:      user.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      user.UpdatedAt.Format(time.RFC3339),
+	}, nil
+}
+
+// GetUser retrieves a user by Username
+func (m *Manager) GetUserByUsername(ctx context.Context, userName string) (*models.UserResponse, error) {
+	m.log.WithField("username", userName).Debug("Getting user by Username")
+
+	// Retrieve the user from the database
+	user, err := m.db.GetUserByUsername(ctx, userName)
+	if err != nil {
+		m.log.WithError(err).WithField("userName", userName).Error("Failed to get user")
+		return nil, err
+	}
+
+	// If user not found
+	if user == nil {
+		m.log.WithField("userName", userName).Warn("User not found")
+		return nil, nil
+	}
+
+	m.log.WithField("userName", userName).Debug("User retrieved successfully")
+
+	// Return the user response
+	return &models.UserResponse{
+		ID:             user.ID.Hex(),
+		Username:       user.Username,
 		Name:           user.Name,
 		Email:          user.Email,
 		Age:            user.Age,
@@ -182,6 +230,80 @@ func (m *Manager) DeleteUser(ctx context.Context, userID string) error {
 	}
 
 	m.log.WithField("id", userID).Info("User deleted successfully")
+	return nil
+}
+
+// UpdateUserByUsername updates a user by username
+func (m *Manager) UpdateUserByUsername(ctx context.Context, username string, request models.UserUpdateRequest) (*models.UserResponse, error) {
+	m.log.WithField("username", username).Info("Updating user by username")
+
+	// First, check if the user exists
+	existingUser, err := m.db.GetUserByUsername(ctx, username)
+	if err != nil {
+		m.log.WithError(err).WithField("username", username).Error("Failed to check for existing user")
+		return nil, err
+	}
+
+	if existingUser == nil {
+		m.log.WithField("username", username).Warn("User not found for update")
+		return nil, nil
+	}
+
+	m.log.WithField("username", username).Debug("Found user, processing update")
+
+	// Instead of selectively updating fields, replace the entire user object
+	// Create an updated user model with all fields from the request
+	updatedUser := mongodb.UserModel{
+		ID:        existingUser.ID,       // Keep the same ID
+		Username:  existingUser.Username, // Keep the same username
+		Name:      utils.GetStringValue(request.Name, existingUser.Name),
+		Email:     utils.GetStringValue(request.Email, existingUser.Email),
+		Age:       utils.GetIntValue(request.Age, existingUser.Age),
+		Sex:       utils.GetStringValue(request.Sex, existingUser.Sex),
+		Weight:    utils.GetFloat64Value(request.Weight, existingUser.Weight),
+		Height:    utils.GetFloat64Value(request.Height, existingUser.Height),
+		CreatedAt: existingUser.CreatedAt, // Keep the original creation time
+		UpdatedAt: time.Now(),             // Update the modification time
+	}
+
+	// Handle the nested structs
+	if request.CurrentFitness != nil {
+		updatedUser.CurrentFitness = *request.CurrentFitness
+	} else {
+		updatedUser.CurrentFitness = existingUser.CurrentFitness
+	}
+
+	if request.Goals != nil {
+		updatedUser.Goals = *request.Goals
+	} else {
+		updatedUser.Goals = existingUser.Goals
+	}
+
+	// Replace the entire user document in the database
+	err = m.db.ReplaceUserByUsername(ctx, username, updatedUser)
+	if err != nil {
+		m.log.WithError(err).WithField("username", username).Error("Failed to update user")
+		return nil, err
+	}
+
+	m.log.WithField("username", username).Info("User updated successfully")
+
+	// Return the updated user
+	return m.GetUserByUsername(ctx, username)
+}
+
+// DeleteUserByUsername deletes a user by username
+func (m *Manager) DeleteUserByUsername(ctx context.Context, username string) error {
+	m.log.WithField("username", username).Info("Deleting user by username")
+
+	// Delete the user from the database
+	err := m.db.DeleteUserByUsername(ctx, username)
+	if err != nil {
+		m.log.WithError(err).WithField("username", username).Error("Failed to delete user")
+		return err
+	}
+
+	m.log.WithField("username", username).Info("User deleted successfully")
 	return nil
 }
 
@@ -504,6 +626,137 @@ func (m *Manager) DeleteWorkoutPlan(ctx context.Context, userID string) error {
 	return nil
 }
 
+// CreateWorkoutPlanByUsername creates a new workout plan by username
+func (m *Manager) CreateWorkoutPlanByUsername(ctx context.Context, username string, request models.CreateWorkoutPlanRequest) (*models.WorkoutPlanResponse, error) {
+	m.log.WithFields(logrus.Fields{
+		"username":  username,
+		"plan_name": request.Name,
+	}).Info("Creating new workout plan by username")
+
+	// Verify user exists and get userID
+	user, err := m.db.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	userID := user.ID.Hex()
+
+	// Create the workout plan in the database
+	id, err := m.db.CreateWorkoutPlan(ctx, userID, request)
+	if err != nil {
+		m.log.WithError(err).Error("Failed to create workout plan")
+		return nil, err
+	}
+
+	// Retrieve the created workout plan
+	plan, err := m.db.GetWorkoutPlan(ctx, userID)
+	if err != nil {
+		m.log.WithError(err).Error("Failed to retrieve created workout plan")
+		return nil, err
+	}
+
+	m.log.WithFields(logrus.Fields{
+		"username": username,
+		"plan_id":  id,
+	}).Info("Workout plan created successfully")
+
+	return plan, nil
+}
+
+// GetWorkoutPlanByUsername gets a workout plan by username
+func (m *Manager) GetWorkoutPlanByUsername(ctx context.Context, username string) (*models.WorkoutPlanResponse, error) {
+	m.log.WithField("username", username).Debug("Getting workout plan by username")
+
+	// Verify user exists and get userID
+	user, err := m.db.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	userID := user.ID.Hex()
+
+	// Get the workout plan from the database
+	plan, err := m.db.GetWorkoutPlan(ctx, userID)
+	if err != nil {
+		m.log.WithError(err).Error("Failed to get workout plan")
+		return nil, err
+	}
+
+	// If plan not found
+	if plan == nil {
+		m.log.WithField("username", username).Debug("No workout plan found")
+		return nil, nil
+	}
+
+	m.log.WithField("username", username).Debug("Workout plan retrieved successfully")
+	return plan, nil
+}
+
+// UpdateWorkoutPlanByUsername updates a workout plan by username
+func (m *Manager) UpdateWorkoutPlanByUsername(ctx context.Context, username string, request models.UpdateWorkoutPlanRequest) (*models.WorkoutPlanResponse, error) {
+	m.log.WithField("username", username).Info("Updating workout plan by username")
+
+	// Verify user exists and get userID
+	user, err := m.db.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	userID := user.ID.Hex()
+
+	// Update the workout plan
+	err = m.db.UpdateWorkoutPlan(ctx, userID, request)
+	if err != nil {
+		m.log.WithError(err).Error("Failed to update workout plan")
+		return nil, err
+	}
+
+	// Get the updated workout plan
+	updatedPlan, err := m.db.GetWorkoutPlan(ctx, userID)
+	if err != nil {
+		m.log.WithError(err).Error("Failed to retrieve updated workout plan")
+		return nil, err
+	}
+
+	m.log.WithField("username", username).Info("Workout plan updated successfully")
+	return updatedPlan, nil
+}
+
+// DeleteWorkoutPlanByUsername deletes a workout plan by username
+func (m *Manager) DeleteWorkoutPlanByUsername(ctx context.Context, username string) error {
+	m.log.WithField("username", username).Info("Deleting workout plan by username")
+
+	// Verify user exists and get userID
+	user, err := m.db.GetUserByUsername(ctx, username)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return errors.New("user not found")
+	}
+
+	userID := user.ID.Hex()
+
+	// Delete the workout plan
+	err = m.db.DeleteWorkoutPlan(ctx, userID)
+	if err != nil {
+		m.log.WithError(err).Error("Failed to delete workout plan")
+		return err
+	}
+
+	m.log.WithField("username", username).Info("Workout plan deleted successfully")
+	return nil
+}
+
 // Progress related methods
 
 // LogProgress logs a new progress entry
@@ -751,16 +1004,20 @@ func (m *Manager) GetProgressTrend(ctx context.Context, userID string, metricTyp
 
 		trend := models.ProgressTrend{
 			MetricType:    metricType,
+			TrendType:     models.TrendStable,
+			Strength:      0,
+			DataPoints:    len(entries),
+			Unit:          entries[0].Unit,
+			Description:   "Insufficient data for trend analysis",
 			StartValue:    startValue,
+			EndValue:      currentValue,
 			CurrentValue:  currentValue,
 			StartDate:     oldestEntry.RecordedAt,
 			EndDate:       newestEntry.RecordedAt,
 			TotalChange:   totalChange,
 			PercentChange: percentChange,
-			WeeklyRate:    math.Round(weeklyRate*100) / 100, // Round to 2 decimal places
-			MonthlyRate:   math.Round(monthlyRate*100) / 100,
-			Unit:          newestEntry.Unit,
-			DataPoints:    len(entries),
+			WeeklyRate:    weeklyRate,
+			MonthlyRate:   monthlyRate,
 		}
 
 		trends = append(trends, trend)
@@ -804,6 +1061,194 @@ func (m *Manager) DeleteProgress(ctx context.Context, userID string, entryID str
 
 	m.log.WithFields(logrus.Fields{
 		"user_id":     userID,
+		"progress_id": entryID,
+	}).Info("Progress entry deleted successfully")
+
+	return nil
+}
+
+// LogProgressByUsername logs a new progress entry by username
+func (m *Manager) LogProgressByUsername(ctx context.Context, username string, request models.LogProgressRequest) (*models.LogProgressResponse, error) {
+	m.log.WithFields(logrus.Fields{
+		"username":    username,
+		"metric_type": request.MetricType,
+	}).Info("Logging progress by username")
+
+	// Verify user exists and get userID
+	user, err := m.db.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	userID := user.ID.Hex()
+
+	// Log progress in the database
+	id, err := m.db.LogProgress(ctx, userID, request)
+	if err != nil {
+		m.log.WithError(err).Error("Failed to log progress")
+		return nil, err
+	}
+
+	// Set default recorded time to now if not provided
+	recordedAt := time.Now()
+	if request.RecordedAt != nil {
+		recordedAt = *request.RecordedAt
+	}
+
+	// Create response
+	response := &models.LogProgressResponse{
+		ID:          id,
+		UserID:      userID,
+		MetricType:  request.MetricType,
+		Value:       request.Value,
+		Unit:        request.Unit,
+		RecordedAt:  recordedAt,
+		Notes:       request.Notes,
+		Location:    request.Location,
+		MeasureArea: request.MeasureArea,
+		CreatedAt:   time.Now(),
+	}
+
+	m.log.WithFields(logrus.Fields{
+		"username":    username,
+		"progress_id": id,
+		"metric_type": request.MetricType,
+	}).Info("Progress logged successfully")
+
+	return response, nil
+}
+
+// GetProgressByUsername retrieves progress entries for a user by username with optional filters
+func (m *Manager) GetProgressByUsername(ctx context.Context, username string, request models.GetProgressRequest) (*models.GetProgressResponse, error) {
+	logFields := logrus.Fields{"username": username}
+	if len(request.MetricTypes) > 0 {
+		logFields["metric_types"] = request.MetricTypes
+	}
+	m.log.WithFields(logFields).Debug("Getting progress by username")
+
+	// Verify user exists and get userID
+	user, err := m.db.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	userID := user.ID.Hex()
+
+	// Get progress entries from the database
+	entries, err := m.db.GetProgress(ctx, userID, request)
+	if err != nil {
+		m.log.WithError(err).Error("Failed to get progress entries")
+		return nil, err
+	}
+
+	// Create response
+	response := &models.GetProgressResponse{
+		Entries: entries,
+		Total:   len(entries),
+	}
+
+	m.log.WithFields(logrus.Fields{
+		"username": username,
+		"count":    len(entries),
+	}).Debug("Progress entries retrieved successfully")
+
+	return response, nil
+}
+
+// GetProgressSummaryByUsername retrieves a summary of progress for a user by username
+func (m *Manager) GetProgressSummaryByUsername(ctx context.Context, username string) (*models.GetProgressSummaryResponse, error) {
+	m.log.WithField("username", username).Debug("Getting progress summary by username")
+
+	// Verify user exists and get userID
+	user, err := m.db.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	userID := user.ID.Hex()
+
+	// Use the existing method with userID
+	summary, err := m.GetProgressSummary(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	m.log.WithFields(logrus.Fields{
+		"username":      username,
+		"summary_count": len(summary.Summaries),
+	}).Debug("Progress summary retrieved successfully")
+
+	return summary, nil
+}
+
+// GetProgressTrendByUsername retrieves trend information for specified metrics by username
+func (m *Manager) GetProgressTrendByUsername(ctx context.Context, username string, metricTypes []models.ProgressMetricType) (*models.GetProgressTrendResponse, error) {
+	m.log.WithFields(logrus.Fields{
+		"username":     username,
+		"metric_types": metricTypes,
+	}).Debug("Getting progress trends by username")
+
+	// Verify user exists and get userID
+	user, err := m.db.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	userID := user.ID.Hex()
+
+	// Use the existing method with userID
+	trends, err := m.GetProgressTrend(ctx, userID, metricTypes)
+	if err != nil {
+		return nil, err
+	}
+
+	m.log.WithFields(logrus.Fields{
+		"username":    username,
+		"trend_count": len(trends.Trends),
+	}).Debug("Progress trends retrieved successfully")
+
+	return trends, nil
+}
+
+// DeleteProgressByUsername deletes a progress entry by username
+func (m *Manager) DeleteProgressByUsername(ctx context.Context, username string, entryID string) error {
+	m.log.WithFields(logrus.Fields{
+		"username":    username,
+		"progress_id": entryID,
+	}).Info("Deleting progress entry by username")
+
+	// Verify user exists and get userID
+	user, err := m.db.GetUserByUsername(ctx, username)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return errors.New("user not found")
+	}
+
+	userID := user.ID.Hex()
+
+	// Delete progress entry
+	err = m.db.DeleteProgress(ctx, userID, entryID)
+	if err != nil {
+		m.log.WithError(err).Error("Failed to delete progress entry")
+		return err
+	}
+
+	m.log.WithFields(logrus.Fields{
+		"username":    username,
 		"progress_id": entryID,
 	}).Info("Progress entry deleted successfully")
 

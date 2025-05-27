@@ -43,6 +43,7 @@ type UserRegistrationRequest struct {
 // UserResponse represents the response for user data
 type UserResponse struct {
 	ID        string  `json:"id"`
+	Username  string  `json:"username"`
 	Name      string  `json:"name"`
 	Email     string  `json:"email"`
 	Age       int     `json:"age"`

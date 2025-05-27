@@ -10,6 +10,7 @@ import (
 // UserModel represents a user in the database
 type UserModel struct {
 	ID             primitive.ObjectID    `bson:"_id,omitempty"`
+	Username       string                `bson:"username"`
 	Name           string                `bson:"name"`
 	Email          string                `bson:"email"`
 	Age            int                   `bson:"age"`
