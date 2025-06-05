@@ -9,9 +9,9 @@ type ProgressMetricType string
 const (
 	MetricWeight      ProgressMetricType = "weight"       // Body weight in kg
 	MetricBodyFat     ProgressMetricType = "body_fat"     // Body fat percentage
-	MetricPRDeadlift  ProgressMetricType = "pr_deadlift"  // Personal record for deadlift in kg
-	MetricPRSquat     ProgressMetricType = "pr_squat"     // Personal record for squat in kg
-	MetricPRBench     ProgressMetricType = "pr_bench"     // Personal record for bench press in kg
+	MetricDeadliftPR  ProgressMetricType = "deadlift_pr"  // Personal record for deadlift in kg
+	MetricSquatPR     ProgressMetricType = "squat_pr"     // Personal record for squat in kg
+	MetricBenchPR     ProgressMetricType = "bench_pr"     // Personal record for bench press in kg
 	MetricBodyMeasure ProgressMetricType = "body_measure" // Body measurements (arm, chest, waist, etc.) in cm
 	MetricCustom      ProgressMetricType = "custom"       // Custom metrics defined by the user
 )

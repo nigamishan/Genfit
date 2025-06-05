@@ -1,0 +1,333 @@
+{
+  "data": [
+    {
+      "name": "Push-up",
+      "description": "A fundamental bodyweight exercise that strengthens the chest, shoulders, and triceps",
+      "primary_muscle_groups": ["chest"],
+      "supporting_muscle_groups": ["shoulders", "triceps", "core"],
+      "equipment": ["bodyweight"],
+      "difficulty": "beginner",
+      "exercise_type": "strength",
+      "instructions": [
+        "Start in a plank position with hands shoulder-width apart",
+        "Lower your body until chest nearly touches the floor",
+        "Keep your body in a straight line from head to heels",
+        "Push back up to starting position"
+      ]
+    },
+    {
+      "name": "Deadlift",
+      "description": "A fundamental compound exercise that targets the posterior chain muscles",
+      "primary_muscle_groups": ["hamstrings", "glutes"],
+      "supporting_muscle_groups": ["lower back", "traps", "forearms"],
+      "equipment": ["barbell", "weight plates"],
+      "difficulty": "intermediate",
+      "exercise_type": "strength",
+      "instructions": [
+        "Stand with feet hip-width apart, barbell over mid-foot",
+        "Bend at hips and knees to grip the bar with hands outside legs",
+        "Keep chest up and back straight",
+        "Lift by extending hips and knees simultaneously",
+        "Stand tall, then lower the bar back to the floor"
+      ]
+    },
+    {
+      "name": "Plank",
+      "description": "An isometric core exercise that strengthens the entire core and improves stability",
+      "primary_muscle_groups": ["core"],
+      "supporting_muscle_groups": ["shoulders", "glutes"],
+      "equipment": ["bodyweight"],
+      "difficulty": "beginner",
+      "exercise_type": "strength",
+      "instructions": [
+        "Start in a push-up position on forearms",
+        "Keep body in a straight line from head to heels",
+        "Engage core muscles and hold position",
+        "Breathe normally while maintaining proper form"
+      ]
+    },
+    {
+      "name": "Pull-up",
+      "description": "A challenging upper body exercise that targets the back and biceps",
+      "primary_muscle_groups": ["lats"],
+      "supporting_muscle_groups": ["rhomboids", "biceps", "middle traps"],
+      "equipment": ["pull-up bar"],
+      "difficulty": "advanced",
+      "exercise_type": "strength",
+      "instructions": [
+        "Hang from pull-up bar with palms facing away",
+        "Engage core and pull body up until chin clears the bar",
+        "Lower yourself slowly to full arm extension",
+        "Repeat without swinging or using momentum"
+      ]
+    },
+    {
+      "name": "Lunges",
+      "description": "A unilateral leg exercise that improves balance and strengthens the lower body",
+      "primary_muscle_groups": ["quadriceps", "glutes"],
+      "supporting_muscle_groups": ["hamstrings", "calves"],
+      "equipment": ["bodyweight"],
+      "difficulty": "beginner",
+      "exercise_type": "strength",
+      "instructions": [
+        "Stand with feet hip-width apart",
+        "Step forward with one leg, lowering hips until both knees are bent at 90 degrees",
+        "Keep front knee over ankle, not pushed out past toes",
+        "Push back to starting position and repeat with other leg"
+      ]
+    },
+    {
+      "name": "Bench Press",
+      "description": "A classic upper body strength exercise targeting the chest, shoulders, and triceps",
+      "primary_muscle_groups": ["chest"],
+      "supporting_muscle_groups": ["shoulders", "triceps"],
+      "equipment": ["barbell", "bench", "weight plates"],
+      "difficulty": "intermediate",
+      "exercise_type": "strength",
+      "instructions": [
+        "Lie on bench with feet flat on floor",
+        "Grip barbell slightly wider than shoulder-width",
+        "Lower bar to chest with control",
+        "Press bar up until arms are fully extended",
+        "Keep shoulders back and core engaged"
+      ]
+    },
+    {
+      "name": "Mountain Climbers",
+      "description": "A dynamic cardio exercise that combines core strengthening with cardiovascular training",
+      "primary_muscle_groups": ["core"],
+      "supporting_muscle_groups": ["shoulders", "hip flexors", "legs"],
+      "equipment": ["bodyweight"],
+      "difficulty": "intermediate",
+      "exercise_type": "cardio",
+      "instructions": [
+        "Start in a plank position",
+        "Bring one knee toward chest while keeping other leg extended",
+        "Quickly switch legs in a running motion",
+        "Keep core tight and maintain plank position throughout"
+      ]
+    },
+    {
+      "name": "Burpees",
+      "description": "A full-body exercise that combines strength training and cardiovascular conditioning",
+      "primary_muscle_groups": ["full body"],
+      "supporting_muscle_groups": ["chest", "shoulders", "legs", "core"],
+      "equipment": ["bodyweight"],
+      "difficulty": "intermediate",
+      "exercise_type": "cardio",
+      "instructions": [
+        "Start standing, then squat down and place hands on floor",
+        "Jump feet back into plank position",
+        "Perform a push-up",
+        "Jump feet back to squat position",
+        "Jump up with arms overhead"
+      ]
+    },
+    {
+      "name": "Dumbbell Rows",
+      "description": "A unilateral pulling exercise that strengthens the back muscles and improves posture",
+      "primary_muscle_groups": ["lats", "rhomboids"],
+      "supporting_muscle_groups": ["middle traps", "rear delts", "biceps"],
+      "equipment": ["dumbbells", "bench"],
+      "difficulty": "beginner",
+      "exercise_type": "strength",
+      "instructions": [
+        "Place one knee and hand on bench for support",
+        "Hold dumbbell in opposite hand with arm extended",
+        "Pull dumbbell to hip, squeezing shoulder blade back",
+        "Lower weight slowly to starting position",
+        "Complete all reps before switching sides"
+      ]
+    },
+    {
+      "name": "Jumping Jacks",
+      "description": "A classic cardiovascular exercise that improves coordination and burns calories",
+      "primary_muscle_groups": ["legs"],
+      "supporting_muscle_groups": ["shoulders", "core"],
+      "equipment": ["bodyweight"],
+      "difficulty": "beginner",
+      "exercise_type": "cardio",
+      "instructions": [
+        "Start with feet together and arms at sides",
+        "Jump feet apart while raising arms overhead",
+        "Jump back to starting position",
+        "Maintain steady rhythm and land softly"
+      ]
+    },
+    {
+      "name": "Overhead Press",
+      "description": "A fundamental upper body exercise that builds shoulder strength and stability",
+      "primary_muscle_groups": ["shoulders"],
+      "supporting_muscle_groups": ["triceps", "upper chest", "core"],
+      "equipment": ["barbell", "weight plates"],
+      "difficulty": "intermediate",
+      "exercise_type": "strength",
+      "instructions": [
+        "Stand with feet hip-width apart, bar at shoulder level",
+        "Grip bar slightly wider than shoulders",
+        "Press bar straight up overhead until arms are fully extended",
+        "Lower bar back to shoulder level with control",
+        "Keep core tight throughout movement"
+      ]
+    },
+    {
+      "name": "Russian Twists",
+      "description": "A rotational core exercise that targets the obliques and improves core stability",
+      "primary_muscle_groups": ["obliques"],
+      "supporting_muscle_groups": ["core", "hip flexors"],
+      "equipment": ["bodyweight"],
+      "difficulty": "beginner",
+      "exercise_type": "strength",
+      "instructions": [
+        "Sit on floor with knees bent and feet elevated",
+        "Lean back slightly while keeping back straight",
+        "Rotate torso from side to side",
+        "Keep core engaged throughout movement",
+        "Touch hands to floor beside each hip"
+      ]
+    },
+    {
+      "name": "High Knees",
+      "description": "A dynamic cardio exercise that improves running form and cardiovascular fitness",
+      "primary_muscle_groups": ["hip flexors"],
+      "supporting_muscle_groups": ["quadriceps", "calves", "core"],
+      "equipment": ["bodyweight"],
+      "difficulty": "beginner",
+      "exercise_type": "cardio",
+      "instructions": [
+        "Stand tall with feet hip-width apart",
+        "Run in place bringing knees up toward chest",
+        "Pump arms as if running",
+        "Maintain quick tempo and stay on balls of feet",
+        "Keep core engaged and posture upright"
+      ]
+    },
+    {
+      "name": "Tricep Dips",
+      "description": "An effective bodyweight exercise that targets the triceps and rear shoulders",
+      "primary_muscle_groups": ["triceps"],
+      "supporting_muscle_groups": ["shoulders", "chest"],
+      "equipment": ["chair", "bench"],
+      "difficulty": "intermediate",
+      "exercise_type": "strength",
+      "instructions": [
+        "Sit on edge of chair or bench with hands gripping the edge",
+        "Slide forward off the seat with legs extended",
+        "Lower body by bending elbows until shoulders are below elbows",
+        "Push back up to starting position",
+        "Keep elbows close to body throughout movement"
+      ]
+    },
+    {
+      "name": "Wall Sit",
+      "description": "An isometric exercise that builds leg strength and muscular endurance",
+      "primary_muscle_groups": ["quadriceps"],
+      "supporting_muscle_groups": ["glutes", "hamstrings", "calves"],
+      "equipment": ["wall"],
+      "difficulty": "beginner",
+      "exercise_type": "strength",
+      "instructions": [
+        "Stand with back against wall, feet shoulder-width apart",
+        "Slide down wall until thighs are parallel to floor",
+        "Keep knees at 90-degree angle",
+        "Hold position while breathing normally",
+        "Keep back flat against wall"
+      ]
+    },
+    {
+      "name": "Bicycle Crunches",
+      "description": "A dynamic core exercise that targets the abs and obliques with a cycling motion",
+      "primary_muscle_groups": ["rectus abdominis", "obliques"],
+      "supporting_muscle_groups": ["hip flexors"],
+      "equipment": ["bodyweight"],
+      "difficulty": "beginner",
+      "exercise_type": "strength",
+      "instructions": [
+        "Lie on back with hands behind head",
+        "Lift shoulders off ground and bring knees toward chest",
+        "Bring right elbow toward left knee while extending right leg",
+        "Switch sides in a pedaling motion",
+        "Keep lower back pressed to floor"
+      ]
+    },
+    {
+      "name": "Calf Raises",
+      "description": "A simple exercise that strengthens and tones the calf muscles",
+      "primary_muscle_groups": ["calves"],
+      "supporting_muscle_groups": [],
+      "equipment": ["bodyweight"],
+      "difficulty": "beginner",
+      "exercise_type": "strength",
+      "instructions": [
+        "Stand tall with feet hip-width apart",
+        "Rise up onto toes by lifting heels off ground",
+        "Hold briefly at the top",
+        "Lower heels back to starting position slowly",
+        "Keep body straight and core engaged"
+      ]
+    },
+    {
+      "name": "Side Plank",
+      "description": "A unilateral core exercise that strengthens the obliques and improves lateral stability",
+      "primary_muscle_groups": ["obliques"],
+      "supporting_muscle_groups": ["core", "shoulders", "glutes"],
+      "equipment": ["bodyweight"],
+      "difficulty": "intermediate",
+      "exercise_type": "strength",
+      "instructions": [
+        "Lie on side with forearm on ground, elbow under shoulder",
+        "Stack feet and lift hips off ground",
+        "Keep body in straight line from head to feet",
+        "Hold position while breathing normally",
+        "Repeat on other side"
+      ]
+    },
+    {
+      "name": "Glute Bridges",
+      "description": "An effective exercise for strengthening the glutes and improving hip mobility",
+      "primary_muscle_groups": ["glutes"],
+      "supporting_muscle_groups": ["hamstrings", "core"],
+      "equipment": ["bodyweight"],
+      "difficulty": "beginner",
+      "exercise_type": "strength",
+      "instructions": [
+        "Lie on back with knees bent and feet flat on floor",
+        "Squeeze glutes and lift hips off ground",
+        "Create straight line from knees to shoulders",
+        "Hold briefly at top",
+        "Lower hips back to starting position"
+      ]
+    },
+    {
+      "name": "Superman",
+      "description": "A back strengthening exercise that targets the erector spinae and improves posture",
+      "primary_muscle_groups": ["lower back"],
+      "supporting_muscle_groups": ["glutes", "hamstrings", "upper back"],
+      "equipment": ["bodyweight"],
+      "difficulty": "beginner",
+      "exercise_type": "strength",
+      "instructions": [
+        "Lie face down with arms extended overhead",
+        "Simultaneously lift chest, arms, and legs off ground",
+        "Hold position briefly while squeezing back muscles",
+        "Lower back to starting position slowly",
+        "Keep neck in neutral position"
+      ]
+    },
+    {
+      "name": "Barbell Squat",
+      "description": "A compound exercise that targets the quadriceps, hamstrings, and glutes",
+      "primary_muscle_groups": ["quadriceps", "glutes"],
+      "supporting_muscle_groups": ["hamstrings"],
+      "equipment": ["barbell", "squat rack"],
+      "difficulty": "intermediate",
+      "exercise_type": "strength",
+      "instructions": [
+        "Stand with feet shoulder-width apart",
+        "Place the barbell on your upper back",
+        "Bend knees and lower body until thighs are parallel to floor",
+        "Push through heels to return to starting position"
+      ]
+    }
+  ]
+}

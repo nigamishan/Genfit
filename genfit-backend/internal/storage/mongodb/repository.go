@@ -334,11 +334,14 @@ func (r *Repository) ListExercises(ctx context.Context, filter *models.ExerciseF
 	if filter.Query != "" {
 		logFields["query"] = filter.Query
 	}
-	if len(filter.MuscleGroups) > 0 {
-		logFields["muscleGroups"] = filter.MuscleGroups
-	}
 	if filter.Limit > 0 {
 		logFields["limit"] = filter.Limit
+	}
+	if len(filter.PrimaryMuscleGroups) > 0 {
+		logFields["primary_muscle_groups"] = filter.PrimaryMuscleGroups
+	}
+	if len(filter.SupportingMuscleGroups) > 0 {
+		logFields["supporting_muscle_groups"] = filter.SupportingMuscleGroups
 	}
 
 	r.log.WithFields(logFields).Debug("Listing exercises with filters")
@@ -350,50 +353,62 @@ func (r *Repository) ListExercises(ctx context.Context, filter *models.ExerciseF
 		findOptions.SetLimit(int64(filter.Limit))
 	}
 
-	// Set skip if provided for pagination
+	// Set skip if provided
 	if filter.Skip > 0 {
 		findOptions.SetSkip(int64(filter.Skip))
 	}
 
 	// Set sorting
+	sortBy := "name"
 	if filter.SortBy != "" {
-		direction := 1 // ascending
-		if filter.SortOrder == "desc" {
-			direction = -1
-		}
-		findOptions.SetSort(bson.D{{Key: filter.SortBy, Value: direction}})
+		sortBy = filter.SortBy
 	}
+	sortOrder := 1 // ascending
+	if filter.SortOrder == "desc" {
+		sortOrder = -1
+	}
+	findOptions.SetSort(bson.D{{Key: sortBy, Value: sortOrder}})
 
 	// Build filter criteria
 	filterBson := bson.M{}
 
-	// Filter by muscle groups if provided
-	if len(filter.MuscleGroups) > 0 {
-		filterBson["muscle_groups"] = bson.M{"$in": filter.MuscleGroups}
+	// Name search if query is provided - case insensitive substring match
+	if filter.Query != "" {
+		filterBson["name"] = bson.M{
+			"$regex":   filter.Query,
+			"$options": "i", // case insensitive
+		}
 	}
 
-	// Filter by equipment if provided
+	// Primary muscle groups filter
+	if len(filter.PrimaryMuscleGroups) > 0 {
+		filterBson["primary_muscle_groups"] = bson.M{
+			"$in": filter.PrimaryMuscleGroups,
+		}
+	}
+
+	// Supporting muscle groups filter
+	if len(filter.SupportingMuscleGroups) > 0 {
+		filterBson["supporting_muscle_groups"] = bson.M{
+			"$in": filter.SupportingMuscleGroups,
+		}
+	}
+
+	// Equipment filter
 	if len(filter.Equipment) > 0 {
-		filterBson["equipment"] = bson.M{"$in": filter.Equipment}
+		filterBson["equipment"] = bson.M{
+			"$in": filter.Equipment,
+		}
 	}
 
-	// Filter by difficulty if provided
+	// Difficulty filter
 	if filter.Difficulty != "" {
 		filterBson["difficulty"] = filter.Difficulty
 	}
 
-	// Filter by exercise type if provided
+	// Exercise type filter
 	if filter.ExerciseType != "" {
 		filterBson["exercise_type"] = filter.ExerciseType
-	}
-
-	// Text search if query is provided
-	if filter.Query != "" {
-		// Simple contains search using regex
-		filterBson["$or"] = []bson.M{
-			{"name": bson.M{"$regex": filter.Query, "$options": "i"}},
-			{"description": bson.M{"$regex": filter.Query, "$options": "i"}},
-		}
 	}
 
 	// Execute the query

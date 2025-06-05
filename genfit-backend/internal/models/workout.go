@@ -4,33 +4,18 @@ import "time"
 
 // Exercise represents a single exercise
 type Exercise struct {
-	ID             string   `json:"id"`
-	Name           string   `json:"name"`
-	Description    string   `json:"description,omitempty"`
-	MuscleGroups   []string `json:"muscle_groups"`
-	Equipment      []string `json:"equipment,omitempty"`
-	Difficulty     string   `json:"difficulty"`    // beginner, intermediate, advanced
-	ExerciseType   string   `json:"exercise_type"` // strength, cardio, flexibility, etc.
-	DemoVideoURL   string   `json:"demo_video_url,omitempty"`
-	DemoImageURL   string   `json:"demo_image_url,omitempty"`
-	Instructions   []string `json:"instructions,omitempty"`
-	RecommendedFor []string `json:"recommended_for,omitempty"` // weight loss, muscle gain, etc.
-}
-
-// ExerciseSearchRequest represents a search request for exercises
-type ExerciseSearchRequest struct {
-	Query        string   `json:"query" binding:"required,min=3"` // At least 3 characters for search
-	MuscleGroups []string `json:"muscle_groups,omitempty"`
-	Equipment    []string `json:"equipment,omitempty"`
-	Difficulty   string   `json:"difficulty,omitempty"` // beginner, intermediate, advanced
-	ExerciseType string   `json:"exercise_type,omitempty"`
-	Limit        int      `json:"limit,omitempty"`
-}
-
-// ExerciseSearchResponse represents the response for exercise search
-type ExerciseSearchResponse struct {
-	Exercises []Exercise `json:"exercises"`
-	Total     int        `json:"total"`
+	ID                     string   `json:"id"`
+	Name                   string   `json:"name"`
+	Description            string   `json:"description,omitempty"`
+	PrimaryMuscleGroups    []string `json:"primary_muscle_groups"`
+	SupportingMuscleGroups []string `json:"supporting_muscle_groups,omitempty"`
+	Equipment              []string `json:"equipment,omitempty"`
+	Difficulty             string   `json:"difficulty"`    // beginner, intermediate, advanced
+	ExerciseType           string   `json:"exercise_type"` // strength, cardio, flexibility, etc.
+	DemoVideoURL           string   `json:"demo_video_url,omitempty"`
+	DemoImageURL           string   `json:"demo_image_url,omitempty"`
+	Instructions           []string `json:"instructions,omitempty"`
+	RecommendedFor         []string `json:"recommended_for,omitempty"` // weight loss, muscle gain, etc.
 }
 
 // SetDetails represents the details of a specific exercise set
@@ -46,7 +31,6 @@ type SetDetails struct {
 
 // Workout represents a single workout in a workout plan
 type Workout struct {
-	ID              string       `json:"id,omitempty"`
 	Name            string       `json:"name" binding:"required"`
 	ExerciseID      string       `json:"exercise_id" binding:"required"`
 	Exercise        *Exercise    `json:"exercise,omitempty"` // Populated when responding
@@ -119,4 +103,31 @@ type WorkoutExercise struct {
 	RPE          int      `json:"rpe,omitempty"`           // Rate of Perceived Exertion (1-10)
 	Notes        string   `json:"notes,omitempty"`
 	SupersetWith *string  `json:"superset_with,omitempty"` // ID of another exercise to superset with
+}
+
+// DailyWorkoutVolumeRequest represents the request for daily workout volume
+type DailyWorkoutVolumeRequest struct {
+	Day *int `json:"day,omitempty"` // Optional: specific day (1-7), if not provided returns all days
+}
+
+// DayWorkoutVolume represents workout volume for a specific day
+type DayWorkoutVolume struct {
+	Day       int              `json:"day"`        // 1 = Monday, 7 = Sunday
+	DayName   string           `json:"day_name"`   // "Monday", "Tuesday", etc.
+	TotalSets int              `json:"total_sets"` // Total number of sets for this day
+	Exercises []ExerciseVolume `json:"exercises"`  // Breakdown by exercise
+}
+
+// ExerciseVolume represents volume for a specific exercise
+type ExerciseVolume struct {
+	ExerciseID   string `json:"exercise_id"`
+	ExerciseName string `json:"exercise_name"`
+	TotalSets    int    `json:"total_sets"`
+}
+
+// DailyWorkoutVolumeResponse represents the response for daily workout volume
+type DailyWorkoutVolumeResponse struct {
+	UserID            string             `json:"user_id"`
+	DailyVolumes      []DayWorkoutVolume `json:"daily_volumes"`
+	TotalWeeklyVolume int                `json:"total_weekly_volume"` // Sum of all sets across all days
 }

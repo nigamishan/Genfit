@@ -31,15 +31,23 @@ const (
 )
 
 func (r *Route) SetupRoutes(engine *gin.Engine) {
-	// Initialize route groups
+	// Add global CORS middleware
+	engine.Use(middlewares.CORSMiddleware())
+
+	// Initialize route groups with CORS middleware for non-admin APIs
 	user := engine.Group(UserPath)
+
 	workout := engine.Group(WorkoutPath)
+
 	progress := engine.Group(ProgressPath)
+
 	exercises := engine.Group(ExercisePath)
-	// auth := engine.Group(AuthPath) // Uncomment when implementing auth routes
 
 	// Public routes (no authentication required)
 	exercises.GET("/search", r.UserSearchExercises) // Public search for exercises
+	exercises.GET("", r.ListExercises)
+	exercises.GET("/:id", r.GetExerciseByID)
+	exercises.GET("/name/:name", r.GetExerciseByName)
 
 	// Protected user routes - using username from context instead of path parameter
 	authenticatedUser := user.Group("")
@@ -52,10 +60,10 @@ func (r *Route) SetupRoutes(engine *gin.Engine) {
 	// Protected workout routes - using username from context
 	workout.Use(middlewares.AuthMiddleware()) // Apply user authentication middleware
 	workout.POST("/manual", r.CreateManualWorkout)
-	workout.GET("/me", r.GetWorkoutPlan)       // Get current user's workout plan
-	workout.PUT("/me", r.UpdateWorkoutPlan)    // Update current user's workout plan
-	workout.DELETE("/me", r.DeleteWorkoutPlan) // Delete current user's workout plan
-	workout.POST("/exercises/search", r.SearchExercises)
+	workout.GET("/me", r.GetWorkoutPlan)            // Get current user's workout plan
+	workout.PUT("/me", r.UpdateWorkoutPlan)         // Update current user's workout plan
+	workout.DELETE("/me", r.DeleteWorkoutPlan)      // Delete current user's workout plan
+	workout.GET("/volume", r.GetDailyWorkoutVolume) // Get daily workout volume
 
 	// Protected progress routes - using username from context
 	progress.Use(middlewares.AuthMiddleware()) // Apply user authentication middleware
@@ -65,30 +73,35 @@ func (r *Route) SetupRoutes(engine *gin.Engine) {
 	progress.GET("/me/trend", r.GetProgressTrend)     // Get current user's progress trend
 	progress.DELETE("", r.DeleteProgress)
 
-	// Protected exercise details route
-	authenticatedExercise := exercises.Group("")
-	authenticatedExercise.Use(middlewares.AuthMiddleware())
-	authenticatedExercise.GET("/:id", r.GetExerciseDetails)
+	// // Protected exercise details route
+	// authenticatedExercise := exercises.Group("")
+	// authenticatedExercise.Use(middlewares.AuthMiddleware())
+	// authenticatedExercise.GET("/:id", r.GetExerciseDetails)
 
-	// Admin routes with admin authentication
+	// Admin routes with admin authentication (NO CORS middleware as requested)
 	admin := engine.Group(AdminPath)
 	admin.Use(middlewares.AdminAuthMiddleware()) // Apply admin authentication middleware
 
 	// Admin exercise management routes
-	adminExercises := admin.Group("/exercises")
+	adminExercises := admin.Group(ExercisePath)
 	adminExercises.POST("", r.CreateExercise)
-	adminExercises.GET("", r.ListExercises)
-	adminExercises.GET("/:id", r.GetExerciseByID)
-	adminExercises.GET("/name/:name", r.GetExerciseByName)
 	adminExercises.PUT("/:id", r.UpdateExercise)
 	adminExercises.DELETE("/:id", r.DeleteExercise)
 
-	// Auth routes - To be implemented later if needed
-	/*
-		auth := engine.Group(AuthPath)
-		auth.POST("/register", r.Register) // Register new user
-		auth.POST("/login", r.Login)       // Login
-	*/
+	// Auth routes with CORS middleware - To be implemented later if needed
+	auth := engine.Group(AuthPath)
+
+	// Public auth routes (no authentication required)
+	//auth.POST("/register", r.Register) // Register new user - to be implemented
+	auth.POST("/login", func(context *gin.Context) {
+		context.JSON(http.StatusOK, "status: success")
+	}) // Login - should not require authentication
+
+	// Protected auth routes (if needed in the future)
+	authenticatedAuth := auth.Group("")
+	authenticatedAuth.Use(middlewares.AuthMiddleware())
+	// Add any authenticated auth routes here if needed
+
 }
 
 // User handlers
@@ -475,8 +488,18 @@ func (r *Route) GetProgressSummary(c *gin.Context) {
 		return
 	}
 
+	// Parse metric types filter
+	var metricTypes []models.ProgressMetricType
+	metricTypesParam := c.QueryArray("metric_types[]")
+	if len(metricTypesParam) > 0 {
+		metricTypes = make([]models.ProgressMetricType, 0, len(metricTypesParam))
+		for _, mt := range metricTypesParam {
+			metricTypes = append(metricTypes, models.ProgressMetricType(mt))
+		}
+	}
+
 	// Get the progress summary
-	response, err := r.manager.GetProgressSummaryByUsername(c, username.(string))
+	response, err := r.manager.GetProgressSummaryByUsername(c, username.(string), metricTypes)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
 			Error:   "Failed to get progress summary",
@@ -500,19 +523,14 @@ func (r *Route) GetProgressTrend(c *gin.Context) {
 		return
 	}
 
-	// Parse metric types
+	// Parse metric types (optional)
+	var metricTypes []models.ProgressMetricType
 	metricTypesParam := c.QueryArray("metric_types[]")
-	if len(metricTypesParam) == 0 {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "At least one metric_type is required",
-		})
-		return
-	}
-
-	metricTypes := make([]models.ProgressMetricType, 0, len(metricTypesParam))
-	for _, mt := range metricTypesParam {
-		metricTypes = append(metricTypes, models.ProgressMetricType(mt))
+	if len(metricTypesParam) > 0 {
+		metricTypes = make([]models.ProgressMetricType, 0, len(metricTypesParam))
+		for _, mt := range metricTypesParam {
+			metricTypes = append(metricTypes, models.ProgressMetricType(mt))
+		}
 	}
 
 	// Get the progress trends
@@ -574,44 +592,6 @@ func (r *Route) Login(c *gin.Context) {
 	// TODO: Call manager to login user
 }
 */
-
-// SearchExercises handles exercise search requests for workout planning
-func (r *Route) SearchExercises(c *gin.Context) {
-	var request models.ExerciseSearchRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: err.Error(),
-		})
-		return
-	}
-
-	// Validate minimum query length
-	if len(request.Query) < 3 {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "Search query must be at least 3 characters long",
-		})
-		return
-	}
-
-	// Set default limit if not provided
-	if request.Limit <= 0 {
-		request.Limit = 20 // Default to 20 results
-	}
-
-	// Call manager to search exercises
-	response, err := r.manager.SearchExercises(c, request)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   "Failed to search exercises",
-			Message: err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, response)
-}
 
 // Exercise management handlers for admin
 // CreateExercise handles creation of a new exercise
@@ -690,9 +670,14 @@ func (r *Route) ListExercises(c *gin.Context) {
 
 	filter.Query = c.Query("query")
 
-	// Parse muscle groups
-	if muscleGroups := c.QueryArray("muscle_groups[]"); len(muscleGroups) > 0 {
-		filter.MuscleGroups = muscleGroups
+	// Parse primary muscle groups
+	if primaryMuscleGroups := c.QueryArray("primary_muscle_groups[]"); len(primaryMuscleGroups) > 0 {
+		filter.PrimaryMuscleGroups = primaryMuscleGroups
+	}
+
+	// Parse supporting muscle groups
+	if supportingMuscleGroups := c.QueryArray("supporting_muscle_groups[]"); len(supportingMuscleGroups) > 0 {
+		filter.SupportingMuscleGroups = supportingMuscleGroups
 	}
 
 	// Parse equipment
@@ -795,12 +780,9 @@ func (r *Route) DeleteExercise(c *gin.Context) {
 // Exercise handlers for users
 // UserSearchExercises allows users to search for exercises
 func (r *Route) UserSearchExercises(c *gin.Context) {
-	// Parse query parameters for filters
-	filter := models.ExerciseFilter{}
-
-	// Parse query - required parameter for user search
-	filter.Query = c.Query("query")
-	if filter.Query == "" {
+	// Parse query parameter - required for search
+	query := c.Query("query")
+	if query == "" {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{
 			Error:   "Invalid request",
 			Message: "Query parameter is required for search",
@@ -808,41 +790,24 @@ func (r *Route) UserSearchExercises(c *gin.Context) {
 		return
 	}
 
-	// Parse muscle groups
-	if muscleGroups := c.QueryArray("muscle_groups[]"); len(muscleGroups) > 0 {
-		filter.MuscleGroups = muscleGroups
+	// Minimum query length validation
+	if len(query) < 2 {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   "Invalid request",
+			Message: "Search query must be at least 2 characters long",
+		})
+		return
 	}
 
-	// Parse equipment
-	if equipment := c.QueryArray("equipment[]"); len(equipment) > 0 {
-		filter.Equipment = equipment
+	// Create filter for name-only search
+	filter := models.ExerciseFilter{
+		Query:     query,
+		Limit:     5,      // Fixed limit of 5 results
+		SortBy:    "name", // Sort by name
+		SortOrder: "asc",  // Ascending order
 	}
 
-	filter.Difficulty = c.Query("difficulty")
-	filter.ExerciseType = c.Query("exercise_type")
-
-	// Parse pagination
-	if limitStr := c.Query("limit"); limitStr != "" {
-		limit, err := strconv.Atoi(limitStr)
-		if err == nil && limit > 0 {
-			filter.Limit = limit
-		}
-	} else {
-		filter.Limit = 20 // Default limit
-	}
-
-	if skipStr := c.Query("skip"); skipStr != "" {
-		skip, err := strconv.Atoi(skipStr)
-		if err == nil && skip >= 0 {
-			filter.Skip = skip
-		}
-	}
-
-	// Parse sorting
-	filter.SortBy = c.DefaultQuery("sort_by", "name")
-	filter.SortOrder = c.DefaultQuery("sort_order", "asc")
-
-	// Get exercises
+	// Get exercises using the manager
 	response, err := r.manager.ListExercises(c, filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
@@ -855,25 +820,41 @@ func (r *Route) UserSearchExercises(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// GetExerciseDetails gets detailed information about a specific exercise
-func (r *Route) GetExerciseDetails(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   "Invalid request",
-			Message: "Exercise ID is required",
+func (r *Route) GetDailyWorkoutVolume(c *gin.Context) {
+	// Get username from context set by middleware
+	username, exists := c.Get("username")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
+			Error:   "Unauthorized",
+			Message: "Username not found in context",
 		})
 		return
 	}
 
-	exercise, err := r.manager.GetExerciseByID(c, id)
+	// Parse optional day query parameter
+	var day *int
+	dayStr := c.Query("day")
+	if dayStr != "" {
+		dayInt, err := strconv.Atoi(dayStr)
+		if err != nil || dayInt < 1 || dayInt > 7 {
+			c.JSON(http.StatusBadRequest, models.ErrorResponse{
+				Error:   "Invalid request",
+				Message: "Day must be an integer between 1 and 7",
+			})
+			return
+		}
+		day = &dayInt
+	}
+
+	// Get the daily workout volume
+	response, err := r.manager.GetDailyWorkoutVolumeByUsername(c, username.(string), day)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   "Failed to get exercise details",
+			Error:   "Failed to get daily workout volume",
 			Message: err.Error(),
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, exercise)
+	c.JSON(http.StatusOK, response)
 }

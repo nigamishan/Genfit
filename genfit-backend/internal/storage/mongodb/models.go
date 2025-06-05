@@ -25,19 +25,20 @@ type UserModel struct {
 
 // ExerciseModel represents an exercise in the database
 type ExerciseModel struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty"`
-	Name           string             `bson:"name"`
-	Description    string             `bson:"description,omitempty"`
-	MuscleGroups   []string           `bson:"muscle_groups"`
-	Equipment      []string           `bson:"equipment,omitempty"`
-	Difficulty     string             `bson:"difficulty"` // beginner, intermediate, advanced
-	ExerciseType   string             `bson:"exercise_type"`
-	DemoVideoURL   string             `bson:"demo_video_url,omitempty"`
-	DemoImageURL   string             `bson:"demo_image_url,omitempty"`
-	Instructions   []string           `bson:"instructions,omitempty"`
-	RecommendedFor []string           `bson:"recommended_for,omitempty"`
-	CreatedAt      time.Time          `bson:"created_at"`
-	UpdatedAt      time.Time          `bson:"updated_at"`
+	ID                     primitive.ObjectID `bson:"_id,omitempty"`
+	Name                   string             `bson:"name"`
+	Description            string             `bson:"description,omitempty"`
+	PrimaryMuscleGroups    []string           `bson:"primary_muscle_groups"`
+	SupportingMuscleGroups []string           `bson:"supporting_muscle_groups,omitempty"`
+	Equipment              []string           `bson:"equipment,omitempty"`
+	Difficulty             string             `bson:"difficulty"` // beginner, intermediate, advanced
+	ExerciseType           string             `bson:"exercise_type"`
+	DemoVideoURL           string             `bson:"demo_video_url,omitempty"`
+	DemoImageURL           string             `bson:"demo_image_url,omitempty"`
+	Instructions           []string           `bson:"instructions,omitempty"`
+	RecommendedFor         []string           `bson:"recommended_for,omitempty"`
+	CreatedAt              time.Time          `bson:"created_at"`
+	UpdatedAt              time.Time          `bson:"updated_at"`
 }
 
 // SetDetailsModel represents the details of a specific exercise set in MongoDB
@@ -53,15 +54,14 @@ type SetDetailsModel struct {
 
 // WorkoutModel represents a single workout in a workout plan in MongoDB
 type WorkoutModel struct {
-	ID              primitive.ObjectID `bson:"_id,omitempty"`
-	Name            string             `bson:"name"`
-	ExerciseID      string             `bson:"exercise_id"`
-	MusclesTargeted []string           `bson:"muscles_targeted"`
-	Day             int                `bson:"day"`
-	SetDetails      []SetDetailsModel  `bson:"set_details"`
-	AddedAt         time.Time          `bson:"added_at"`
-	Notes           string             `bson:"notes,omitempty"`
-	Order           int                `bson:"order,omitempty"`
+	Name            string            `bson:"name"`
+	ExerciseID      string            `bson:"exercise_id"`
+	MusclesTargeted []string          `bson:"muscles_targeted"`
+	Day             int               `bson:"day"`
+	SetDetails      []SetDetailsModel `bson:"set_details"`
+	AddedAt         time.Time         `bson:"added_at"`
+	Notes           string            `bson:"notes,omitempty"`
+	Order           int               `bson:"order,omitempty"`
 }
 
 // WorkoutPlanModel represents a complete workout plan in MongoDB
@@ -92,17 +92,18 @@ type ProgressEntryModel struct {
 // ToExercise converts an ExerciseModel to a models.Exercise
 func (m *ExerciseModel) ToExercise() models.Exercise {
 	return models.Exercise{
-		ID:             m.ID.Hex(),
-		Name:           m.Name,
-		Description:    m.Description,
-		MuscleGroups:   m.MuscleGroups,
-		Equipment:      m.Equipment,
-		Difficulty:     m.Difficulty,
-		ExerciseType:   m.ExerciseType,
-		DemoVideoURL:   m.DemoVideoURL,
-		DemoImageURL:   m.DemoImageURL,
-		Instructions:   m.Instructions,
-		RecommendedFor: m.RecommendedFor,
+		ID:                     m.ID.Hex(),
+		Name:                   m.Name,
+		Description:            m.Description,
+		PrimaryMuscleGroups:    m.PrimaryMuscleGroups,
+		SupportingMuscleGroups: m.SupportingMuscleGroups,
+		Equipment:              m.Equipment,
+		Difficulty:             m.Difficulty,
+		ExerciseType:           m.ExerciseType,
+		DemoVideoURL:           m.DemoVideoURL,
+		DemoImageURL:           m.DemoImageURL,
+		Instructions:           m.Instructions,
+		RecommendedFor:         m.RecommendedFor,
 	}
 }
 
@@ -122,19 +123,20 @@ func FromExercise(exercise models.Exercise) ExerciseModel {
 
 	now := time.Now()
 	return ExerciseModel{
-		ID:             id,
-		Name:           exercise.Name,
-		Description:    exercise.Description,
-		MuscleGroups:   exercise.MuscleGroups,
-		Equipment:      exercise.Equipment,
-		Difficulty:     exercise.Difficulty,
-		ExerciseType:   exercise.ExerciseType,
-		DemoVideoURL:   exercise.DemoVideoURL,
-		DemoImageURL:   exercise.DemoImageURL,
-		Instructions:   exercise.Instructions,
-		RecommendedFor: exercise.RecommendedFor,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:                     id,
+		Name:                   exercise.Name,
+		Description:            exercise.Description,
+		PrimaryMuscleGroups:    exercise.PrimaryMuscleGroups,
+		SupportingMuscleGroups: exercise.SupportingMuscleGroups,
+		Equipment:              exercise.Equipment,
+		Difficulty:             exercise.Difficulty,
+		ExerciseType:           exercise.ExerciseType,
+		DemoVideoURL:           exercise.DemoVideoURL,
+		DemoImageURL:           exercise.DemoImageURL,
+		Instructions:           exercise.Instructions,
+		RecommendedFor:         exercise.RecommendedFor,
+		CreatedAt:              now,
+		UpdatedAt:              now,
 	}
 }
 
@@ -172,7 +174,6 @@ func (m *WorkoutModel) ToWorkout() models.Workout {
 	}
 
 	return models.Workout{
-		ID:              m.ID.Hex(),
 		Name:            m.Name,
 		ExerciseID:      m.ExerciseID,
 		MusclesTargeted: m.MusclesTargeted,
@@ -186,18 +187,6 @@ func (m *WorkoutModel) ToWorkout() models.Workout {
 
 // FromWorkout creates a WorkoutModel from models.Workout
 func FromWorkout(workout models.Workout) WorkoutModel {
-	var id primitive.ObjectID
-	if workout.ID != "" {
-		var err error
-		id, err = primitive.ObjectIDFromHex(workout.ID)
-		if err != nil {
-			// If ID is invalid, create a new ObjectID
-			id = primitive.NewObjectID()
-		}
-	} else {
-		id = primitive.NewObjectID()
-	}
-
 	setDetails := make([]SetDetailsModel, len(workout.SetDetails))
 	for i, set := range workout.SetDetails {
 		setDetails[i] = SetDetailsModel{
@@ -217,7 +206,6 @@ func FromWorkout(workout models.Workout) WorkoutModel {
 	}
 
 	return WorkoutModel{
-		ID:              id,
 		Name:            workout.Name,
 		ExerciseID:      workout.ExerciseID,
 		MusclesTargeted: workout.MusclesTargeted,

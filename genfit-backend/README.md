@@ -137,7 +137,8 @@ curl -X POST http://localhost:8080/admin/exercises \
   -d '{
     "name": "Barbell Squat",
     "description": "A compound exercise for legs",
-    "muscle_groups": ["quadriceps", "hamstrings", "glutes"],
+    "primary_muscle_groups": ["quadriceps", "glutes"],
+    "supporting_muscle_groups": ["hamstrings"],
     "difficulty": "intermediate",
     "exercise_type": "strength"
   }'
@@ -218,7 +219,8 @@ echo -n "username:password" | base64
   {
     "name": "Barbell Squat",
     "description": "A compound exercise that targets the quadriceps, hamstrings, and glutes",
-    "muscle_groups": ["quadriceps", "hamstrings", "glutes"],
+    "primary_muscle_groups": ["quadriceps", "glutes"],
+    "supporting_muscle_groups": ["hamstrings"],
     "equipment": ["barbell", "squat rack"],
     "difficulty": "intermediate",
     "exercise_type": "strength",
@@ -242,7 +244,8 @@ echo -n "username:password" | base64
 - **Query Parameters**:
   - `limit`: Maximum number of results (default: 20)
   - `skip`: Number of records to skip (for pagination)
-  - `muscle_groups`: Filter by muscle groups (comma separated)
+  - `primary_muscle_groups`: Filter by primary muscle groups (comma separated)
+  - `supporting_muscle_groups`: Filter by supporting muscle groups (comma separated)
   - `difficulty`: Filter by difficulty level
   - `exercise_type`: Filter by exercise type
 - **Response**: List of exercises
@@ -332,21 +335,99 @@ echo -n "username:password" | base64
 - **Authentication**: Required (Basic Auth)
 - **Response**: 204 No Content
 
+#### Get Daily Workout Volume
+
+- **Endpoint**: `GET /workout/volume`
+- **Description**: Retrieves daily workout volume data (total sets per day). Can fetch for all days or filter by a specific day.
+- **Authentication**: Required (Basic Auth)
+- **Query Parameters**:
+  - `day`: Optional. Specific day (1-7) where 1=Monday, 7=Sunday. If not provided, returns all days.
+- **Response**: Daily workout volume data
+
+**Example Requests:**
+```bash
+# Get volume for all days
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/workout/volume"
+
+# Get volume for Monday (day 1)
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/workout/volume?day=1"
+
+# Get volume for Friday (day 5)
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/workout/volume?day=5"
+```
+
+**Response format:**
+```json
+{
+  "user_id": "user123",
+  "daily_volumes": [
+    {
+      "day": 1,
+      "day_name": "Monday", 
+      "total_sets": 5,
+      "exercises": [
+        {
+          "exercise_id": "ex123",
+          "exercise_name": "Bench Press",
+          "total_sets": 3
+        },
+        {
+          "exercise_id": "ex124", 
+          "exercise_name": "Barbell Squat",
+          "total_sets": 2
+        }
+      ]
+    },
+    {
+      "day": 2,
+      "day_name": "Tuesday",
+      "total_sets": 0,
+      "exercises": []
+    }
+  ],
+  "total_weekly_volume": 15
+}
+```
+
+### Exercise Search (Public)
+
 #### Search Exercises
 
-- **Endpoint**: `POST /workout/exercises/search`
-- **Description**: Searches exercises for workout planning
-- **Authentication**: Required (Basic Auth)
-- **Request Body**:
-  ```json
-  {
-    "query": "squat",
-    "muscle_groups": ["legs", "glutes"],
-    "difficulty": "beginner",
-    "limit": 10
-  }
-  ```
-- **Response**: List of matching exercises
+- **Endpoint**: `GET /exercises/search`
+- **Description**: Public search for exercises by name (no authentication required). Searches for exercises containing the provided substring in their name. Returns top 5 matching results sorted alphabetically.
+- **Authentication**: None (public endpoint)
+- **Query Parameters**:
+  - `query`: Search query (required, minimum 2 characters) - searches exercise names containing this substring
+- **Response**: List of up to 5 matching exercises sorted by name
+
+**Example:**
+```bash
+# Search for exercises containing "bench"
+curl "http://localhost:8080/exercises/search?query=bench"
+
+# Search for exercises containing "press"  
+curl "http://localhost:8080/exercises/search?query=press"
+```
+
+**Response format:**
+```json
+{
+  "exercises": [
+    {
+      "id": "ex123",
+      "name": "Bench Press",
+      "description": "...",
+      "primary_muscle_groups": ["chest"],
+      "supporting_muscle_groups": ["shoulders", "triceps"],
+      "difficulty": "intermediate",
+      "exercise_type": "strength"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "page_size": 5
+}
+```
 
 ### Progress Tracking
 
@@ -374,19 +455,57 @@ echo -n "username:password" | base64
 - **Description**: Retrieves your progress entries with optional filters
 - **Authentication**: Required (Basic Auth)
 - **Query Parameters**:
-  - `metric_types[]`: Types of metrics to retrieve (array parameter)
+  - `metric_types[]`: Optional. Filter by specific metric types (array parameter)
   - `start_date`: Filter by start date (RFC3339 format)
   - `end_date`: Filter by end date (RFC3339 format)
   - `limit`: Maximum number of entries to return
   - `sort_order`: "asc" or "desc" (default: "desc")
 - **Response**: List of your progress entries
 
+**Example requests:**
+```bash
+# Get all progress entries (newest first)
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/progress/me"
+
+# Get weight tracking entries only
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/progress/me?metric_types[]=weight"
+
+# Get recent 10 entries for multiple metrics
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/progress/me?metric_types[]=weight&metric_types[]=body_fat&limit=10"
+
+# Get entries from a specific date range
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/progress/me?start_date=2023-01-01T00:00:00Z&end_date=2023-12-31T23:59:59Z"
+```
+
 #### Get Your Progress Summary
 
 - **Endpoint**: `GET /progress/me/summary`
 - **Description**: Retrieves summary of your progress metrics
 - **Authentication**: Required (Basic Auth)
+- **Query Parameters**:
+  - `metric_types[]`: Optional. Filter by specific metric types (array parameter)
 - **Response**: Summary statistics for each of your metric types
+
+**Available metric types:**
+- `weight`: Body weight tracking
+- `body_fat`: Body fat percentage
+- `deadlift_pr`: Deadlift personal records
+- `squat_pr`: Squat personal records  
+- `bench_pr`: Bench press personal records
+- `body_measure`: Body measurements (with measure_area)
+- `custom`: Custom metrics
+
+**Example requests:**
+```bash
+# Get summary for all metric types
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/progress/me/summary"
+
+# Get summary for weight and body fat only
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/progress/me/summary?metric_types[]=weight&metric_types[]=body_fat"
+
+# Get summary for PR metrics only
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/progress/me/summary?metric_types[]=deadlift_pr&metric_types[]=squat_pr&metric_types[]=bench_pr"
+```
 
 #### Get Your Progress Trend
 
@@ -394,8 +513,20 @@ echo -n "username:password" | base64
 - **Description**: Retrieves trend information for your metrics
 - **Authentication**: Required (Basic Auth)
 - **Query Parameters**:
-  - `metric_types[]`: Types of metrics to analyze (array parameter)
+  - `metric_types[]`: Optional. Filter by specific metric types (array parameter). If not provided, analyzes all available metric types.
 - **Response**: Trend analysis for each of your metric types
+
+**Example requests:**
+```bash
+# Get trends for all available metric types
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/progress/me/trend"
+
+# Get trends for weight tracking only
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/progress/me/trend?metric_types[]=weight"
+
+# Get trends for strength metrics
+curl -H "Authorization: Basic dXNlcjE6dXNlcjE=" "http://localhost:8080/progress/me/trend?metric_types[]=deadlift_pr&metric_types[]=squat_pr&metric_types[]=bench_pr"
+```
 
 #### Delete Progress Entry
 

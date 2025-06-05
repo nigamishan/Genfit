@@ -315,16 +315,17 @@ func (m *Manager) CreateExercise(ctx context.Context, request models.CreateExerc
 
 	// Convert request to Exercise model
 	exercise := models.Exercise{
-		Name:           request.Name,
-		Description:    request.Description,
-		MuscleGroups:   request.MuscleGroups,
-		Equipment:      request.Equipment,
-		Difficulty:     request.Difficulty,
-		ExerciseType:   request.ExerciseType,
-		DemoVideoURL:   request.DemoVideoURL,
-		DemoImageURL:   request.DemoImageURL,
-		Instructions:   request.Instructions,
-		RecommendedFor: request.RecommendedFor,
+		Name:                   request.Name,
+		Description:            request.Description,
+		PrimaryMuscleGroups:    request.PrimaryMuscleGroups,
+		SupportingMuscleGroups: request.SupportingMuscleGroups,
+		Equipment:              request.Equipment,
+		Difficulty:             request.Difficulty,
+		ExerciseType:           request.ExerciseType,
+		DemoVideoURL:           request.DemoVideoURL,
+		DemoImageURL:           request.DemoImageURL,
+		Instructions:           request.Instructions,
+		RecommendedFor:         request.RecommendedFor,
 	}
 
 	// Check if an exercise with the same name already exists
@@ -438,17 +439,18 @@ func (m *Manager) UpdateExercise(ctx context.Context, id string, request models.
 
 	// Update the exercise
 	updatedExercise := models.Exercise{
-		ID:             id,
-		Name:           request.Name,
-		Description:    request.Description,
-		MuscleGroups:   request.MuscleGroups,
-		Equipment:      request.Equipment,
-		Difficulty:     request.Difficulty,
-		ExerciseType:   request.ExerciseType,
-		DemoVideoURL:   request.DemoVideoURL,
-		DemoImageURL:   request.DemoImageURL,
-		Instructions:   request.Instructions,
-		RecommendedFor: request.RecommendedFor,
+		ID:                     id,
+		Name:                   request.Name,
+		Description:            request.Description,
+		PrimaryMuscleGroups:    request.PrimaryMuscleGroups,
+		SupportingMuscleGroups: request.SupportingMuscleGroups,
+		Equipment:              request.Equipment,
+		Difficulty:             request.Difficulty,
+		ExerciseType:           request.ExerciseType,
+		DemoVideoURL:           request.DemoVideoURL,
+		DemoImageURL:           request.DemoImageURL,
+		Instructions:           request.Instructions,
+		RecommendedFor:         request.RecommendedFor,
 	}
 
 	err = m.db.UpdateExercise(ctx, id, updatedExercise)
@@ -475,33 +477,6 @@ func (m *Manager) DeleteExercise(ctx context.Context, id string) error {
 }
 
 // Workout related methods
-
-// SearchExercises searches for exercises based on search criteria
-func (m *Manager) SearchExercises(ctx context.Context, request models.ExerciseSearchRequest) (*models.ExerciseSearchResponse, error) {
-	// Create filter from search request
-	filter := models.ExerciseFilter{
-		Query:        request.Query,
-		MuscleGroups: request.MuscleGroups,
-		Equipment:    request.Equipment,
-		Difficulty:   request.Difficulty,
-		ExerciseType: request.ExerciseType,
-		Limit:        request.Limit,
-	}
-
-	// Use ListExercises to get filtered exercises
-	result, err := m.ListExercises(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to search response
-	response := &models.ExerciseSearchResponse{
-		Exercises: result.Exercises,
-		Total:     result.Total,
-	}
-
-	return response, nil
-}
 
 // CreateWorkoutPlan creates a new workout plan
 func (m *Manager) CreateWorkoutPlan(ctx context.Context, userID string, request models.CreateWorkoutPlanRequest) (*models.WorkoutPlanResponse, error) {
@@ -757,6 +732,120 @@ func (m *Manager) DeleteWorkoutPlanByUsername(ctx context.Context, username stri
 	return nil
 }
 
+// GetDailyWorkoutVolumeByUsername calculates daily workout volume for a user
+func (m *Manager) GetDailyWorkoutVolumeByUsername(ctx context.Context, username string, day *int) (*models.DailyWorkoutVolumeResponse, error) {
+	m.log.WithField("username", username).Debug("Getting daily workout volume by username")
+
+	// Verify user exists and get userID
+	user, err := m.db.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, errors.New("user not found")
+	}
+
+	userID := user.ID.Hex()
+
+	// Get the workout plan
+	plan, err := m.db.GetWorkoutPlan(ctx, userID)
+	if err != nil {
+		m.log.WithError(err).Error("Failed to get workout plan for volume calculation")
+		return nil, err
+	}
+
+	if plan == nil {
+		m.log.WithField("username", username).Debug("No workout plan found for volume calculation")
+		return &models.DailyWorkoutVolumeResponse{
+			UserID:            userID,
+			DailyVolumes:      []models.DayWorkoutVolume{},
+			TotalWeeklyVolume: 0,
+		}, nil
+	}
+
+	// Calculate daily volumes
+	dayNames := []string{"", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+	dailyVolumes := make(map[int]*models.DayWorkoutVolume)
+	totalWeeklyVolume := 0
+
+	// Initialize days 1-7
+	for i := 1; i <= 7; i++ {
+		dailyVolumes[i] = &models.DayWorkoutVolume{
+			Day:       i,
+			DayName:   dayNames[i],
+			TotalSets: 0,
+			Exercises: []models.ExerciseVolume{},
+		}
+	}
+
+	// Group exercises by day and calculate volume
+	exerciseVolumes := make(map[int]map[string]*models.ExerciseVolume) // day -> exerciseID -> volume
+
+	for _, workout := range plan.Workouts {
+		workoutDay := workout.Day
+		if workoutDay < 1 || workoutDay > 7 {
+			continue // Skip invalid days
+		}
+
+		// Initialize exercise volumes for this day if not exists
+		if exerciseVolumes[workoutDay] == nil {
+			exerciseVolumes[workoutDay] = make(map[string]*models.ExerciseVolume)
+		}
+
+		// Calculate total sets for this workout
+		totalSets := len(workout.SetDetails)
+
+		// Add to daily total
+		dailyVolumes[workoutDay].TotalSets += totalSets
+		totalWeeklyVolume += totalSets
+
+		// Add to exercise-specific volume
+		exerciseName := workout.Name
+		if workout.Exercise != nil {
+			exerciseName = workout.Exercise.Name
+		}
+
+		if exerciseVolumes[workoutDay][workout.ExerciseID] == nil {
+			exerciseVolumes[workoutDay][workout.ExerciseID] = &models.ExerciseVolume{
+				ExerciseID:   workout.ExerciseID,
+				ExerciseName: exerciseName,
+				TotalSets:    0,
+			}
+		}
+		exerciseVolumes[workoutDay][workout.ExerciseID].TotalSets += totalSets
+	}
+
+	// Convert exercise volumes to slices
+	for dayNum, dayExercises := range exerciseVolumes {
+		for _, exerciseVol := range dayExercises {
+			dailyVolumes[dayNum].Exercises = append(dailyVolumes[dayNum].Exercises, *exerciseVol)
+		}
+	}
+
+	// Build response
+	response := &models.DailyWorkoutVolumeResponse{
+		UserID:            userID,
+		DailyVolumes:      []models.DayWorkoutVolume{},
+		TotalWeeklyVolume: totalWeeklyVolume,
+	}
+
+	// Filter by specific day if requested
+	if day != nil {
+		if *day >= 1 && *day <= 7 {
+			response.DailyVolumes = []models.DayWorkoutVolume{*dailyVolumes[*day]}
+			response.TotalWeeklyVolume = dailyVolumes[*day].TotalSets
+		}
+	} else {
+		// Return all days
+		for i := 1; i <= 7; i++ {
+			response.DailyVolumes = append(response.DailyVolumes, *dailyVolumes[i])
+		}
+	}
+
+	m.log.WithField("username", username).Debug("Daily workout volume calculated successfully")
+	return response, nil
+}
+
 // Progress related methods
 
 // LogProgress logs a new progress entry
@@ -850,7 +939,7 @@ func (m *Manager) GetProgress(ctx context.Context, userID string, request models
 }
 
 // GetProgressSummary retrieves a summary of progress for a user
-func (m *Manager) GetProgressSummary(ctx context.Context, userID string) (*models.GetProgressSummaryResponse, error) {
+func (m *Manager) GetProgressSummary(ctx context.Context, userID string, metricTypes []models.ProgressMetricType) (*models.GetProgressSummaryResponse, error) {
 	m.log.WithField("user_id", userID).Debug("Getting progress summary")
 
 	// Verify user exists
@@ -862,8 +951,13 @@ func (m *Manager) GetProgressSummary(ctx context.Context, userID string) (*model
 		return nil, errors.New("user not found")
 	}
 
-	// First get all progress data
-	allProgress, err := m.GetProgress(ctx, userID, models.GetProgressRequest{})
+	// Get progress data with metric type filtering
+	progressRequest := models.GetProgressRequest{}
+	if len(metricTypes) > 0 {
+		progressRequest.MetricTypes = metricTypes
+	}
+
+	allProgress, err := m.GetProgress(ctx, userID, progressRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -946,11 +1040,15 @@ func (m *Manager) GetProgressTrend(ctx context.Context, userID string, metricTyp
 		return nil, errors.New("user not found")
 	}
 
-	// First get all progress data
-	allProgress, err := m.GetProgress(ctx, userID, models.GetProgressRequest{
-		MetricTypes: metricTypes,
-		SortOrder:   "desc", // newest first
-	})
+	// Get progress data with metric type filtering
+	progressRequest := models.GetProgressRequest{
+		SortOrder: "desc", // newest first
+	}
+	if len(metricTypes) > 0 {
+		progressRequest.MetricTypes = metricTypes
+	}
+
+	allProgress, err := m.GetProgress(ctx, userID, progressRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -1162,7 +1260,7 @@ func (m *Manager) GetProgressByUsername(ctx context.Context, username string, re
 }
 
 // GetProgressSummaryByUsername retrieves a summary of progress for a user by username
-func (m *Manager) GetProgressSummaryByUsername(ctx context.Context, username string) (*models.GetProgressSummaryResponse, error) {
+func (m *Manager) GetProgressSummaryByUsername(ctx context.Context, username string, metricTypes []models.ProgressMetricType) (*models.GetProgressSummaryResponse, error) {
 	m.log.WithField("username", username).Debug("Getting progress summary by username")
 
 	// Verify user exists and get userID
@@ -1177,7 +1275,7 @@ func (m *Manager) GetProgressSummaryByUsername(ctx context.Context, username str
 	userID := user.ID.Hex()
 
 	// Use the existing method with userID
-	summary, err := m.GetProgressSummary(ctx, userID)
+	summary, err := m.GetProgressSummary(ctx, userID, metricTypes)
 	if err != nil {
 		return nil, err
 	}
